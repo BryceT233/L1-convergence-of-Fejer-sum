@@ -10,8 +10,8 @@ import Mathlib
 
 # Convergence of Fejér Sums in $L^1$
 
-This file presents a proof of the fundamental result that for any Lebesgue integrable function $f$
-on the circle ($f \in L^1(S^1)$), its sequence of Fejér sums, $\sigma_n(f)$, converges to $f$ in the $L^1$ norm.
+This file presents a proof of the result that for any Lebesgue integrable function $f$ on the circle ($f \in L^1(S^1)$),
+its sequence of Fejér sums, $\sigma_n(f)$, converges to $f$ in the $L^1$ norm.
 
 The proof hinges on representing the Fejér sum as the convolution of the function $f$ with the Fejér kernel $fejerKernel_n$,
 i.e., $\sigma_n(f) = f ⋆ fejerKernel_n$. Convergence is then established by showing that the family of Fejér kernels $\{K_n\}$ constitutes an approximation to the identity.
@@ -24,7 +24,8 @@ We will demonstrate the crucial properties of the Fejér kernel that make it a "
 The final step of the proof uses these properties, along with the continuity of translation in the $L^1$ norm (i.e., $\|\tau_y f - f\|_{L^1} \to 0$ as $y \to 0$).
 We express the norm of the difference $\|\sigma_n(f) - f\|_{L^1}$ as an integral involving $f$ and $fejerKernel_n$. By strategically splitting this integral,
 we show that the contributions from both a small neighborhood of the origin and its complement can be made arbitrarily small for large $n$, which proves the theorem.
-.-/
+
+-/
 
 open Real MeasureTheory Filter Finset
 
