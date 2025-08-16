@@ -328,7 +328,7 @@ lemma norm_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ,
     · rw [aux_eq]; exact hf.aemeasurable
   rw [← integral_map aux_mea aux_smea, aux_eq]
 
--- Prove that when $y$ goes to zero, the 𝓛¹-norm of the translated functions $f(x-y)$ goes to the 𝓛¹-norm of $f(x)$
+-- Prove that when $y$ goes to zero, the translated functions $f(x-y)$ tendsto $f(x)$ under 𝓛¹-norm
 lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume,
     Tendsto (fun y => (hf.comp_sub_right y).toL1) (nhds 0) (nhds hf.toL1) := by
   intro f hf; rw [Metric.tendsto_nhds_nhds]
