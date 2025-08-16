@@ -7,14 +7,13 @@ Authors: Bingyu Xia
 import Mathlib
 
 /-
-
 # Convergence of Fejér Sums in $L^1$
 
 This file presents a proof of the result that for any Lebesgue integrable function $f$ on the circle ($f \in L^1(S^1)$),
 its sequence of Fejér sums, $\sigma_n(f)$, converges to $f$ in the $L^1$ norm.
 
 The proof hinges on representing the Fejér sum as the convolution of the function $f$ with the Fejér kernel $fejerKernel_n$,
-i.e., $\sigma_n(f) = f ⋆ fejerKernel_n$. Convergence is then established by showing that the family of Fejér kernels $\{K_n\}$ constitutes an approximation to the identity.
+i.e., $\sigma_n(f) = f ⋆ fejerKernel_n$. Convergence is then established by showing that the family of Fejér kernels $\{fejerKernel_n\}$ constitutes an approximation to the identity.
 
 We will demonstrate the crucial properties of the Fejér kernel that make it a "good kernel":
 1. Unit Integral: The total integral of the kernel is always 1.
@@ -24,7 +23,6 @@ We will demonstrate the crucial properties of the Fejér kernel that make it a "
 The final step of the proof uses these properties, along with the continuity of translation in the $L^1$ norm (i.e., $\|\tau_y f - f\|_{L^1} \to 0$ as $y \to 0$).
 We express the norm of the difference $\|\sigma_n(f) - f\|_{L^1}$ as an integral involving $f$ and $fejerKernel_n$. By strategically splitting this integral,
 we show that the contributions from both a small neighborhood of the origin and its complement can be made arbitrarily small for large $n$, which proves the theorem.
-
 -/
 
 open Real MeasureTheory Filter Finset
@@ -100,23 +98,11 @@ lemma integral_fejerKernel : ∀ n, ∫ x in (-π)..π, fejerKernel n x = 2 * π
       norm_cast; exact hi.left
     · rw [intervalIntegral.integral_comp_mul_left]; simp
       norm_cast; exact hi.left
-    · apply Continuous.intervalIntegrable
-      apply Continuous.comp'; exact Complex.continuous_ofReal
-      apply Continuous.comp'; exact continuous_cos
-      apply Continuous.mul; exact continuous_const
-      exact continuous_id
-    · apply Continuous.intervalIntegrable; apply Continuous.mul
-      exact continuous_const; apply Continuous.comp'; exact Complex.continuous_ofReal
-      apply Continuous.comp'; exact continuous_sin
-      apply Continuous.mul; exact continuous_const
-      exact continuous_id
-    · intros; apply Continuous.intervalIntegrable
-      apply Continuous.comp'; apply Complex.continuous_exp
-      apply Continuous.mul; exact continuous_const
-      exact Complex.continuous_ofReal
+    any_goals apply Continuous.intervalIntegrable; fun_prop
+    · intros; apply Continuous.intervalIntegrable; fun_prop
   simp [sum_congr rfl this]; rw [← mul_assoc, inv_mul_cancel₀, one_mul]
   · norm_cast
-  · intro i hi; apply Continuous.intervalIntegrable; continuity
+  · intro i hi; apply Continuous.intervalIntegrable; fun_prop
 
 -- Prove an auxillary fact that $sin (x / 2) = 0$ if and only if $x = 0$ when $x$ belongs to $[-π, π]$
 lemma aux_sin : ∀ x ∈ Set.Icc (-π) π, sin (x / 2) = 0 ↔ x = 0 := by
@@ -260,12 +246,7 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
           rw [this]; apply IsCompact.union
           all_goals exact isCompact_Icc
         apply ContinuousOn.abs; apply ContinuousOn.div
-        any_goals apply Continuous.continuousOn; apply Continuous.pow
-        · apply Continuous.comp'; exact continuous_sin
-          apply Continuous.mul; exact continuous_const
-          exact continuous_id
-        · apply Continuous.comp'; exact continuous_sin
-          apply Continuous.div_const; exact continuous_id
+        any_goals fun_prop
         · intro x hx; simp [hS] at hx
           rw [pow_ne_zero_iff, ne_eq, aux_sin]
           intro h; simp [h] at hx
@@ -337,16 +318,13 @@ lemma norm_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ,
   have aux_eq : Measure.map (fun a => a - y) volume = volume := by
     ext s hs; rw [Measure.map_apply]
     · simp only [sub_eq_add_neg, measure_preimage_add_right]
-    · apply Continuous.measurable; apply Continuous.sub
-      exact continuous_id; exact continuous_const
+    · fun_prop
     exact hs
-  have aux_mea : AEMeasurable (fun a => a - y) := by
-    apply Continuous.aemeasurable; apply Continuous.sub
-    exact continuous_id; exact continuous_const
+  have aux_mea : AEMeasurable (fun a => a - y) := by fun_prop
   have aux_smea : AEStronglyMeasurable (fun x => ‖f x‖) (Measure.map (fun a => a - y) volume) := by
     apply AEStronglyMeasurable.comp_aemeasurable
     · apply Continuous.aestronglyMeasurable
-      apply Continuous.norm; exact continuous_id
+      exact continuous_norm
     · rw [aux_eq]; exact hf.aemeasurable
   rw [← integral_map aux_mea aux_smea, aux_eq]
 
@@ -364,8 +342,7 @@ lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → �
     intro; apply Continuous.integrable_of_hasCompactSupport
     apply Continuous.comp
     · exact g.continuous
-    · apply Continuous.sub; exact continuous_id
-      exact continuous_const
+    · fun_prop
     apply HasCompactSupport.of_compactSpace
   have int_g := aux_g 0
   rw [show (⇑g ∘ fun x => x - 0) = ⇑g by ext; simp] at int_g
