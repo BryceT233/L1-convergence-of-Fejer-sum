@@ -30,16 +30,12 @@ open Real MeasureTheory Filter Finset
 -- Define Fejer kernel functions
 noncomputable def fejerKernel : ℕ → ℝ → ℂ := fun n x => 1 / (n + 1) * ∑ m ∈ range (n + 1), ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x)
 
+lemma aux_ofReal : Complex.ofReal = Complex.ofRealCLM := by
+    ext; simp only [Complex.ofRealCLM_apply]
+
 -- Prove that $fejerKernel n$ is smooth for all $n$
 lemma contDiff_fejerKernel : ∀ n, ContDiff ℝ ⊤ (fejerKernel n) := by
-  intro n; unfold fejerKernel
-  apply ContDiff.mul; exact contDiff_const
-  apply ContDiff.sum; intros; apply ContDiff.sum
-  intros; apply ContDiff.cexp; apply ContDiff.mul
-  apply ContDiff.mul; any_goals exact contDiff_const
-  have : Complex.ofReal = Complex.ofRealCLM := by
-    ext; simp only [Complex.ofRealCLM_apply]
-  rw [this]; apply ContinuousLinearMap.contDiff
+  intro n; unfold fejerKernel; rw [aux_ofReal]; fun_prop
 
 -- Prove a real closed formula of $fejerKernel n$ for $sin (x / 2) ≠ 0$ by induction
 lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 / (n + 1) * sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2 := by
@@ -323,12 +319,11 @@ lemma norm_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ,
   have aux_mea : AEMeasurable (fun a => a - y) := by fun_prop
   have aux_smea : AEStronglyMeasurable (fun x => ‖f x‖) (Measure.map (fun a => a - y) volume) := by
     apply AEStronglyMeasurable.comp_aemeasurable
-    · apply Continuous.aestronglyMeasurable
-      exact continuous_norm
+    · fun_prop
     · rw [aux_eq]; exact hf.aemeasurable
   rw [← integral_map aux_mea aux_smea, aux_eq]
 
--- Prove that when $y$ goes to zero, the translated functions $f(x-y)$ tendsto $f(x)$ under 𝓛¹-norm
+-- Prove that when $y$ goes to zero, the translated functions $f(x-y)$ tends to $f(x)$ under 𝓛¹-norm
 lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume,
     Tendsto (fun y => (hf.comp_sub_right y).toL1) (nhds 0) (nhds hf.toL1) := by
   intro f hf; rw [Metric.tendsto_nhds_nhds]
@@ -642,8 +637,7 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
                   linarith only [pi_pos]
               apply measure_mono at aux_sbst; rw [eq_iff_le_not_lt]; constructor
               · convert aux_sbst; symm; rw [Set.image_eq_iUnion]
-                apply measure_iUnion_null
-                simp only [Set.mem_setOf_eq, measure_iUnion_null_iff, measure_singleton, implies_true]
+                apply measure_iUnion_null; simp
               push_neg; exact zero_le'
               exact Measure.instOuterMeasureClass
           · rw [EventuallyLE]; apply ae_restrict_of_forall_mem measurableSet_Ioo
