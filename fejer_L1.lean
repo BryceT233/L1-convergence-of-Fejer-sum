@@ -256,18 +256,6 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
   exact S_mea
 
 -- Define an auxillary notion `cmul_bl` to be the standard real bilinear forms of complex multiplications on complex numbers
-@[continuity]
-lemma aux_cont : Continuous fun x : ℂ =>
-    ({ toFun := fun y => x * y, map_add' := by intros; ring, map_smul' := by intros; simp; ring, cont := by continuity } : ℂ →L[ℝ] ℂ) := by
-  rw [Metric.continuous_iff]
-  simp [dist_eq_norm]; intro x ε εpos
-  use ε / 2; constructor; positivity
-  intros; calc
-    _ ≤ ε / 2 := by
-      rw [ContinuousLinearMap.opNorm_le_iff]; simp
-      intro; rw [← sub_mul, norm_mul]; gcongr; positivity
-    _ < _ := by linarith only [εpos]
-
 noncomputable def cmul_bl : ℂ →L[ℝ] ℂ →L[ℝ] ℂ := {
   toFun := fun x => {
     toFun := fun y => x * y
@@ -276,6 +264,15 @@ noncomputable def cmul_bl : ℂ →L[ℝ] ℂ →L[ℝ] ℂ := {
   }
   map_add' := by intros; ext; simp; ring
   map_smul' := by intros; ext; simp; ring
+  cont := by
+    rw [Metric.continuous_iff]
+    simp [dist_eq_norm]; intro x ε εpos
+    use ε / 2; constructor; positivity
+    intros; calc
+      _ ≤ ε / 2 := by
+        rw [ContinuousLinearMap.opNorm_le_iff]; simp
+        intro; rw [← sub_mul, norm_mul]; gcongr; positivity
+      _ < _ := by linarith only [εpos]
 }
 
 lemma aux_cmul : ∀ x y, cmul_bl x y = x * y := by simp [cmul_bl]
