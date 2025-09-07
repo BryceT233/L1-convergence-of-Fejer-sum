@@ -58,7 +58,7 @@ lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 /
       rw [sub_add_add_cancel]; norm_cast; push_cast
       rw [← eq_sub_iff_add_eq', div_sub_div_same, sin_sub_sin]
       ring_nf; nth_rw 2 [mul_assoc]; rw [mul_inv_cancel₀, mul_one]
-      field_simp; exact hx
+      simpa
   replace this : ∀ m ∈ range (n + 1), ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) = sin ((m + 1 / 2) * x) / sin (x / 2) := by
     intros; apply this
   rw [sum_congr rfl this, ← sum_div]; norm_cast; push_cast
@@ -71,7 +71,8 @@ lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 /
     rw [sub_mul, show t-1/2+1 = t+1/2 by ring, add_mul, one_div_mul_eq_div]
     rw [cos_add, cos_sub]; ring; norm_num
   rw [sum_congr rfl this, ← mul_sum, sum_range_sub']
-  simp [-one_div]; rw [mul_one_sub, one_div_mul_eq_div]
+  simp only [CharP.cast_eq_zero, zero_mul, cos_zero, Nat.cast_add, Nat.cast_one]
+  rw [mul_one_sub, one_div_mul_eq_div]
   rw [show (n+1)*x = 2*((n+1)/2*x) by ring, ← sin_sq_eq_half_sub, ← pow_two]
 
 -- Compute the integral of $fejerKernel$ in $[-π, π]$
@@ -79,40 +80,49 @@ lemma integral_fejerKernel : ∀ n, ∫ x in (-π)..π, fejerKernel n x = 2 * π
   intro n; unfold fejerKernel
   rw [intervalIntegral.integral_const_mul, intervalIntegral.integral_finset_sum]
   have : ∀ x ∈ range (n + 1), ∫ (x_1 : ℝ) in -π..π, ∑ k ∈ Icc (-x : ℤ) x, Complex.exp (Complex.I * k * x_1) = 2 * π := by
-    intro x hx; simp at hx
+    intro x hx; rw [mem_range] at hx
     rw [intervalIntegral.integral_finset_sum, ← sum_erase_add _ _ (show 0 ∈ Icc (-x:ℤ) x by simp)]
     set s := (Icc (-x : ℤ) x).erase 0 with hs; clear_value s
     simp [← eq_sub_iff_add_eq]; ring_nf; apply sum_eq_zero
-    intro i hi; simp [hs] at hi
+    intro i hi; simp only [hs, mem_erase, ne_eq, mem_Icc] at hi
     have : Set.EqOn (fun (x : ℝ) => Complex.exp (Complex.I * i * x) ) (fun x => cos (i * x) + Complex.I * sin (i * x)) (Set.uIcc (-π) π) := by
-      intro x _; simp; rw [mul_assoc, mul_comm]
-      norm_cast; simp [Complex.exp_mul_I]; ring
+      intro x _; simp only [Complex.ofReal_cos, Complex.ofReal_mul, Complex.ofReal_intCast,
+        Complex.ofReal_sin]
+      rw [mul_assoc, mul_comm]; norm_cast
+      simp only [Complex.ofReal_mul, Complex.ofReal_intCast, Complex.exp_mul_I, Complex.ofReal_cos,
+        Complex.ofReal_sin, add_right_inj]
+      ring
     rw [intervalIntegral.integral_congr this, intervalIntegral.integral_add]
     rw [intervalIntegral.integral_const_mul, intervalIntegral.integral_ofReal, intervalIntegral.integral_ofReal]
-    simp [Complex.ext_iff]; constructor
+    simp only [Complex.ext_iff, Complex.add_re, Complex.ofReal_re, Complex.mul_re, Complex.I_re,
+      zero_mul, Complex.I_im, Complex.ofReal_im, mul_zero, sub_self, add_zero, Complex.zero_re,
+      Complex.add_im, Complex.mul_im, one_mul, zero_add, Complex.zero_im]
+    constructor
     · rw [intervalIntegral.integral_comp_mul_left]; simp
       norm_cast; exact hi.left
     · rw [intervalIntegral.integral_comp_mul_left]; simp
       norm_cast; exact hi.left
     any_goals apply Continuous.intervalIntegrable; fun_prop
     · intros; apply Continuous.intervalIntegrable; fun_prop
-  simp [sum_congr rfl this]; rw [← mul_assoc, inv_mul_cancel₀, one_mul]
+  simp only [one_div, sum_congr rfl this, sum_const, card_range, nsmul_eq_mul, Nat.cast_add,
+    Nat.cast_one]
+  rw [← mul_assoc, inv_mul_cancel₀, one_mul]
   · norm_cast
-  · intro i hi; apply Continuous.intervalIntegrable; fun_prop
+  · intros; apply Continuous.intervalIntegrable; fun_prop
 
 -- Prove an auxillary fact that $sin (x / 2) = 0$ if and only if $x = 0$ when $x$ belongs to $[-π, π]$
 lemma aux_sin : ∀ x ∈ Set.Icc (-π) π, sin (x / 2) = 0 ↔ x = 0 := by
-  intro x hx; simp at hx
+  intro x hx; simp only [Set.mem_Icc] at hx
   rw [sin_eq_zero_iff]; constructor
   · rintro ⟨n, hn⟩; rw [eq_div_iff] at hn; rw [← hn] at hx
     rcases hx with ⟨hx1, hx2⟩
     nth_rw 2 [mul_comm] at hx1 hx2; rw [mul_assoc] at hx1 hx2
-    rw [← mul_neg_one, mul_le_mul_left] at hx1; norm_cast at hx1
-    nth_rw 2 [← mul_one π] at hx2; rw [mul_le_mul_left] at hx2
-    norm_cast at hx2; simp at hx1; simp [← hn]
-    left; omega
-    all_goals positivity
-  intro; use 0; symm; simp; assumption
+    rw [← mul_neg_one, mul_le_mul_iff_right₀] at hx1; norm_cast at hx1
+    nth_rw 2 [← mul_one π] at hx2; rw [mul_le_mul_iff_right₀] at hx2
+    norm_cast at hx2; simp only [Int.reduceNegSucc, Int.reduceNeg] at hx1
+    simp only [← hn, mul_eq_zero, Int.cast_eq_zero, pi_ne_zero, or_false, OfNat.ofNat_ne_zero]
+    omega; all_goals positivity
+  intro; use 0; symm; simpa
 
 -- Prove that the integral of the norm of $fejerKernel$ in $[-π, π]$ is $2 * π$
 lemma integral_norm_fejerKernel : ∀ n, ∫ x in (-π)..π, ‖fejerKernel n x‖ = 2 * π := by
@@ -129,7 +139,11 @@ lemma integral_norm_fejerKernel : ∀ n, ∫ x in (-π)..π, ‖fejerKernel n x�
       rw [abs_eq_self.mpr, mul_div]; positivity
       · intro h; rw [aux_sin] at h; contradiction
         apply Set.mem_Icc_of_Ioc; exact xmem
-    intro hx; unfold fejerKernel; simp [hx]
+    intro hx; unfold fejerKernel; simp only [hx, Set.mem_Ioc, Left.neg_neg_iff, one_div,
+      Complex.ofReal_zero, mul_zero, Complex.exp_zero, sum_const, Int.card_Icc, sub_neg_eq_add,
+      nsmul_eq_mul, mul_one, Complex.norm_mul, norm_inv, sin_zero, ne_eq, OfNat.ofNat_ne_zero,
+      not_false_eq_true, zero_pow, zero_div, div_zero, mul_eq_zero, inv_eq_zero, norm_eq_zero,
+      not_or]
     split_ands; any_goals norm_cast
     any_goals positivity
     linarith only [pi_pos]
@@ -145,7 +159,10 @@ lemma integral_norm_fejerKernel : ∀ n, ∫ x in (-π)..π, ‖fejerKernel n x�
       intro hx; rw [fejerKernel_eq_real]; push_cast; rfl
       · intro h; rw [aux_sin] at h; contradiction
         apply Set.mem_Icc_of_Ioc; exact xmem
-    intro hx; unfold fejerKernel; simp [hx]
+    intro hx; unfold fejerKernel; simp only [hx, Set.mem_Ioc, Left.neg_neg_iff, one_div, mul_zero,
+      sin_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow, zero_div, div_zero,
+      Complex.ofReal_zero, Complex.exp_zero, sum_const, Int.card_Icc, sub_neg_eq_add, nsmul_eq_mul,
+      mul_one, zero_eq_mul, inv_eq_zero, not_or]
     split_ands; any_goals norm_cast
     any_goals positivity
     linarith only [pi_pos]
@@ -155,9 +172,9 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
   intro δ δpos δlt; rw [Metric.tendsto_atTop]
   have ne_top : volume (Set.Icc (-π) π) ≠ ⊤ := by simp
   have aux_sbst : Set.Ioo (-δ) δ ⊆ Set.Icc (-π) π := by
-    simp [Set.subset_def]
+    simp only [Set.subset_def, Set.mem_Ioo, Set.mem_Icc, and_imp]
     intros; exact ⟨by linarith, by linarith⟩
-  intro ε εpos; simp
+  intro ε εpos; simp only [ge_iff_le, dist_zero_right]
   set S := setOf fun x => δ ≤ |x| ∧ |x| ≤ π with hS; clear_value S
   have S_eq : S = Set.Icc (-π) π \ Set.Ioo (-δ) δ := by
     simp only [hS, Set.ext_iff, Set.mem_setOf_eq, Set.mem_diff, Set.mem_Icc, Set.mem_Ioo, not_and, not_lt]
@@ -171,7 +188,7 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
     rw [S_eq]; apply MeasurableSet.diff
     exact measurableSet_Icc; exact measurableSet_Ioo
   have aux_ge : ∀ x ∈ S, sin (δ / 2) ^ 2 ≤ sin (x / 2) ^ 2 := by
-    intro x hx; simp [hS] at hx
+    intro x hx; simp only [hS, Set.mem_setOf_eq] at hx
     rw [sin_sq_eq_half_sub, sin_sq_eq_half_sub]; gcongr
     norm_num [mul_div_cancel₀]; rw [← cos_abs]; nth_rw 2 [← cos_abs]
     apply cos_le_cos_of_nonneg_of_le_pi
@@ -187,13 +204,15 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
   rw [setIntegral_congr_fun _ this]; simp_rw [← mul_div]
   rw [integral_const_mul]; norm_cast
   rw [integral_complex_ofReal, norm_mul]
-  simp; norm_cast; push_cast; calc
+  simp only [Nat.cast_add, Nat.cast_one, one_div, norm_inv, Complex.norm_real, norm_eq_abs,
+    gt_iff_lt]
+  norm_cast; push_cast; calc
     _ ≤ ((n : ℝ) + 1)⁻¹ * ∫ (x : ℝ) in S, |sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2| := by
       gcongr; apply abs_integral_le_integral_abs
     _ < _ := by
       rw [inv_mul_eq_div, div_lt_iff₀]
       replace this : ∀ x ∈ S, |sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2| ≤ 1 / sin (δ / 2) ^ 2 := by
-        intro x hx; simp [hS] at hx
+        intro x hx; simp only [hS, Set.mem_setOf_eq] at hx
         rw [abs_div, abs_pow]; gcongr
         · rw [sq_pos_iff]; intro h; rw [aux_sin] at h
           simp [h] at δpos
@@ -210,18 +229,21 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
           positivity; exact hx.right; exact hx.left
       apply lt_of_le_of_lt (setIntegral_mono_on _ _ _ this)
       · rify at nge; replace nge := lt_of_lt_of_le (Nat.lt_floor_add_one _) nge
-        simp [integral_const, -one_div]; calc
+        simp only [integral_const, MeasurableSet.univ, measureReal_restrict_apply, Set.univ_inter,
+          smul_eq_mul, gt_iff_lt]
+        calc
           _ < volume.real (Set.Icc (-π) π) * (1 / sin (δ / 2) ^ 2) := by
             gcongr
-            · simp [sq_pos_iff]; rw [aux_sin]; positivity
+            · simp only [one_div, inv_pos, sq_pos_iff, ne_eq]
+              rw [aux_sin]; positivity
               rw [Set.mem_Icc]; constructor
               · apply le_of_lt; rw [gt_iff_lt] at δpos
                 apply lt_trans _ δpos; simp only [Left.neg_neg_iff]
                 positivity
               linarith only [δlt]
             rw [S_eq, measureReal_diff, sub_lt_self_iff]
-            simp; exact δpos; exact aux_sbst
-            exact measurableSet_Ioo
+            simp only [volume_real_Ioo, sub_neg_eq_add, right_lt_sup, add_self_nonpos_iff, not_le]
+            exact δpos; exact aux_sbst; exact measurableSet_Ioo
           _ < _ := by
             rw [volume_real_Icc, sub_neg_eq_add, ← two_mul, max_eq_left, mul_one_div]
             rw [← div_lt_iff₀', div_div]; nth_rw 2 [mul_comm]
@@ -243,9 +265,9 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
           all_goals exact isCompact_Icc
         apply ContinuousOn.abs; apply ContinuousOn.div
         any_goals fun_prop
-        · intro x hx; simp [hS] at hx
+        · intro x hx; simp only [hS, Set.mem_setOf_eq] at hx
           rw [pow_ne_zero_iff, ne_eq, aux_sin]
-          intro h; simp [h] at hx
+          intro h; simp only [h, abs_zero] at hx
           linarith only [hx.left, δpos]
           · rw [Set.mem_Icc, ← abs_le]; exact hx.right
           positivity
@@ -260,17 +282,20 @@ noncomputable def cmul_bl : ℂ →L[ℝ] ℂ →L[ℝ] ℂ := {
   toFun := fun x => {
     toFun := fun y => x * y
     map_add' := by intros; ring
-    map_smul' := by intros; simp; ring
+    map_smul' := by intros; simp only [Complex.real_smul, RingHom.id_apply]; ring
   }
-  map_add' := by intros; ext; simp; ring
-  map_smul' := by intros; ext; simp; ring
+  map_add' := by intros; ext; simp only [ContinuousLinearMap.coe_mk', LinearMap.coe_mk,
+    AddHom.coe_mk, ContinuousLinearMap.add_apply]; ring
+  map_smul' := by intros; ext; simp only [Complex.real_smul, ContinuousLinearMap.coe_mk',
+    LinearMap.coe_mk, AddHom.coe_mk, RingHom.id_apply, ContinuousLinearMap.coe_smul', Pi.smul_apply]; ring
   cont := by
     rw [Metric.continuous_iff]
     simp [dist_eq_norm]; intro x ε εpos
     use ε / 2; constructor; positivity
     intros; calc
       _ ≤ ε / 2 := by
-        rw [ContinuousLinearMap.opNorm_le_iff]; simp
+        rw [ContinuousLinearMap.opNorm_le_iff]; simp only [ContinuousLinearMap.coe_sub',
+          ContinuousLinearMap.coe_mk', LinearMap.coe_mk, AddHom.coe_mk, Pi.sub_apply]
         intro; rw [← sub_mul, norm_mul]; gcongr; positivity
       _ < _ := by linarith only [εpos]
 }
@@ -327,7 +352,9 @@ lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → �
   intro ε εpos; simp only [dist_eq_norm, sub_zero]
   have : Fact ((1 : ENNReal) ≤ 1) := ⟨by rfl⟩
   have := ContinuousMap.toLp_denseRange ℂ (volume : Measure (AddCircle (2 * π))) ℂ (show 1 ≠ ⊤ by simp)
-  simp [denseRange_iff_closure_range, Set.ext_iff, Metric.mem_closure_iff, dist_eq_norm] at this
+  simp only [denseRange_iff_closure_range, Set.ext_iff, Metric.mem_closure_iff, gt_iff_lt,
+    Set.mem_range, dist_eq_norm, exists_exists_eq_and, Set.mem_univ, iff_true,
+    Subtype.forall] at this
   specialize this hf.toL1 hf.toL1.mem (ε / 3) (by positivity)
   rcases this with ⟨g, hg⟩
   have aux_g : ∀ y, Integrable (g ∘ (fun x => x - y)) := by
@@ -365,21 +392,19 @@ lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → �
         rw [this, ← sub_pos, ← integral_sub, integral_pos_iff_support_of_nonneg]
         · suffices : Function.support (fun a => ε / (6 * π) - ‖g (a - y) - g a‖) = Set.univ
           · rw [this, AddCircle.measure_univ]; positivity
-          simp [Set.ext_iff]; intro x
-          apply ne_of_gt; rw [sub_pos]; apply hδ
-          rw [sub_right_comm, sub_self, zero_sub, norm_neg]
-          exact nylt
-        · simp [Pi.le_def]; intro x
-          apply le_of_lt; apply hδ
-          rw [sub_right_comm, sub_self, zero_sub, norm_neg]
-          exact nylt
+          simp only [Set.ext_iff, Function.mem_support, ne_eq, Set.mem_univ, iff_true]
+          intro x; apply ne_of_gt; rw [sub_pos]; apply hδ
+          rwa [sub_right_comm, sub_self, zero_sub, norm_neg]
+        · simp only [Pi.le_def, Pi.zero_apply, sub_nonneg]
+          intro x; apply le_of_lt; apply hδ
+          rwa [sub_right_comm, sub_self, zero_sub, norm_neg]
         · apply Integrable.sub; apply integrable_const
           apply Integrable.norm; apply Integrable.sub
           apply aux_g; exact int_g
         · apply integrable_const
         · apply Integrable.norm; apply Integrable.sub
           apply aux_g; exact int_g
-      · rw [norm_sub_rev]; exact hg
+      · rwa [norm_sub_rev]
 
 -- The main theorem of 𝓛¹-convergence of Fejer sum for Lebesgue integrable functions
 theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume,
@@ -398,7 +423,8 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
   specialize this (ε / (4 * ‖hf.toL1‖ + 1)) (by positivity)
   rcases this with ⟨N, hN⟩
   have aux_sbst : Set.Ioo (-(δ ⊓ π / 2)) (δ ⊓ π / 2) ⊆ Set.Icc (-π) π := by
-    simp [Set.subset_def]; intros; constructor
+    simp only [Set.subset_def, Set.mem_Ioo, lt_inf_iff, Set.mem_Icc, and_imp]
+    intros; constructor
     all_goals linarith [min_le_right δ (π / 2)]
   set S := setOf fun x => δ ⊓ π / 2 ≤ |x| ∧ |x| ≤ π with hS; clear_value S
   have S_eq : S = Set.Icc (-π) π \ Set.Ioo (-(δ ⊓ π / 2)) (δ ⊓ π / 2) := by
@@ -444,10 +470,9 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
     · replace this : Integrable (fun _ => (1 : ℂ)) (volume : Measure (AddCircle (2 * π))) := by
         apply integrable_const
       have aux_conv := Integrable.convolution_integrand cmul_bl this hf
-      simp [aux_cmul] at aux_conv; exact aux_conv
+      simp only [aux_cmul, one_mul] at aux_conv; exact aux_conv
     · replace this : (fun x : AddCircle (2 * π) × AddCircle (2 * π) => f x.1) =
-      fun x => f x.1 * (1 : AddCircle (2 * π) → ℂ) x.2 := by
-        ext; simp
+      fun x => f x.1 * (1 : AddCircle (2 * π) → ℂ) x.2 := by ext; simp
       rw [this]; apply Integrable.mul_prod; exact hf
       apply integrable_const
     · set F := fun (x, y) => ‖f (y - x) - f y‖ with hF
@@ -482,8 +507,9 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
       have : (2 * π) • f x = ∫ (t : AddCircle (2 * π)), (fejerKernel n ∘ Subtype.val ∘ ⇑(AddCircle.measurableEquivIoc (2 * π) (-π))) t * f x := by
         simp only [Complex.real_smul, Complex.ofReal_mul, Complex.ofReal_ofNat, ← integral_fejerKernel n, ← intervalIntegral.integral_mul_const]
         rw [← AddCircle.integral_preimage _ (-π), intervalIntegral]
-        nth_rw 2 [Set.Ioc_eq_empty]; simp [show -π+2*π = π by ring]
-        simp [AddCircle.measurableEquivIoc, AddCircle.equivIoc]
+        nth_rw 2 [Set.Ioc_eq_empty]
+        simp only [Measure.restrict_empty, integral_zero_measure, sub_zero, show -π + 2 * π = π by ring, Function.comp_apply]
+        simp only [AddCircle.measurableEquivIoc, AddCircle.equivIoc, MeasurableEquiv.coe_mk, QuotientAddGroup.equivIocMod_coe]
         apply setIntegral_congr_fun; exact measurableSet_Ioc
         · intro a ha; simp only [mul_eq_mul_right_iff]; left
           congr 1; symm; rw [toIocMod_eq_self]
@@ -505,7 +531,9 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
           rw [(AddCircle.measurePreserving_mk (2 * π) (-π)).integrable_comp]
           apply hf.comp_sub_left; exact (hf.comp_sub_left x).aestronglyMeasurable
           exact isCompact_Icc
-        intro y hy; simp [F, AddCircle.measurableEquivIoc, AddCircle.equivIoc]
+        intro y hy; simp only [AddCircle.measurableEquivIoc, AddCircle.equivIoc,
+          MeasurableEquiv.coe_mk, Function.comp_apply, QuotientAddGroup.equivIocMod_coe,
+          mul_eq_mul_right_iff, F]
         left; rw [(toIocMod_eq_self _).mpr hy]
         · apply AEStronglyMeasurable.mul
           · apply AEStronglyMeasurable.comp_measurable
@@ -516,10 +544,11 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
             exact (AddCircle.measurableEquivIoc (2 * π) (-π)).measurable
           exact (hf.comp_sub_left x).aestronglyMeasurable
       apply Integrable.mul_const; exact aux_integrable n
-    _ = ∫ (a : ℝ) in Set.Ioc (-π) π, ‖fejerKernel n a‖ * ∫ (a_1 : AddCircle (2 * π)), ‖f (a_1 - ↑a) - f a_1‖ := by
+    _ = ∫ (a : ℝ) in Set.Ioc (-π) π, ‖fejerKernel n a‖ * ∫ (a_1 : AddCircle (2 * π)), ‖f (a_1 - a) - f a_1‖ := by
       rw [integral_integral_swap]; simp only [integral_const_mul]
       rw [← AddCircle.integral_preimage _ (-π)]
-      simp [show -π+2*π = π by ring, AddCircle.measurableEquivIoc, AddCircle.equivIoc]
+      simp only [show -π + 2 * π = π by ring, AddCircle.measurableEquivIoc, AddCircle.equivIoc,
+        MeasurableEquiv.coe_mk, Function.comp_apply, QuotientAddGroup.equivIocMod_coe]
       apply setIntegral_congr_fun; exact measurableSet_Ioc
       · intro a ha; simp only [mul_eq_mul_right_iff]; left
         congr; rw [toIocMod_eq_self]
@@ -568,7 +597,8 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
                 · rw [abs_eq_self]; positivity
               rw [setIntegral_congr_fun _ this]
               by_cases h : ‖Integrable.toL1 f hf‖ = 0
-              · simp [h]; exact εpos
+              · simp only [one_div, h, mul_zero, Nat.ofNat_pos, div_pos_iff_of_pos_right,
+                gt_iff_lt]; exact εpos
               rw [Real.norm_eq_abs, abs_eq_self.mpr] at hN; push_cast at hN
               rw [← lt_div_iff₀, div_div]; simp only [← mul_div, integral_const_mul]
               apply lt_trans hN; gcongr
