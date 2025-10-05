@@ -44,23 +44,26 @@ lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 /
   have : ∀ m : ℕ, ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) = sin ((m + 1 / 2) * x) / sin (x / 2) := by
     intro m; induction m with
     | zero =>
-      simp [-Complex.ofReal_sin]; norm_cast; field_simp
+      simp only [CharP.cast_eq_zero, neg_zero, Icc_self, sum_singleton, Int.cast_zero, mul_zero,
+        zero_mul, Complex.exp_zero, one_div, zero_add]
+      norm_cast; field_simp
     | succ m ih =>
       push_cast [-Complex.ofReal_sin]
-      rw [neg_add', ← sum_erase_add _ _ (show (m:ℤ)+1 ∈ Icc ((-m:ℤ)-1) (m+1) by simp; omega)]
-      rw [Icc_erase_right, ← sum_erase_add _ _ (show -(m:ℤ)-1 ∈ Ico ((-m:ℤ)-1) (m+1) by simp; omega)]
-      rw [Ico_erase_left, Ioo_sub_one_left_eq_Ioc, Ico_add_one_right_eq_Icc]
-      rw [ih, add_assoc, mul_assoc, mul_assoc]
+      rw [neg_add', ← sum_erase_add _ _ (show (m:ℤ)+1 ∈ Icc ((-m:ℤ)-1) (m+1) by simp; omega),
+        Icc_erase_right, ← sum_erase_add _ _ (show -(m:ℤ)-1 ∈ Ico ((-m:ℤ)-1) (m+1) by simp; omega),
+        Ico_erase_left, Ioo_sub_one_left_eq_Ioc, Ico_add_one_right_eq_Icc, ih, add_assoc,
+        mul_assoc, mul_assoc]
       nth_rw 2 [mul_comm]; nth_rw 4 [mul_comm]
       rw [Complex.exp_mul_I, Complex.exp_mul_I]; norm_cast
-      rw [← neg_add', Int.cast_neg, neg_mul, cos_neg, sin_neg, Complex.ofReal_neg]
-      rw [neg_mul, ← sub_eq_add_neg]; push_cast [-Complex.ofReal_sin, -Complex.ofReal_cos]
+      rw [← neg_add', Int.cast_neg, neg_mul, cos_neg, sin_neg, Complex.ofReal_neg,
+        neg_mul, ← sub_eq_add_neg]
+      push_cast [-Complex.ofReal_sin, -Complex.ofReal_cos]
       rw [sub_add_add_cancel]; norm_cast; push_cast
       rw [← eq_sub_iff_add_eq', div_sub_div_same, sin_sub_sin]
       ring_nf; nth_rw 2 [mul_assoc]; rw [mul_inv_cancel₀, mul_one]
-      simpa
-  replace this : ∀ m ∈ range (n + 1), ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) = sin ((m + 1 / 2) * x) / sin (x / 2) := by
-    intros; apply this
+      · simpa
+  replace this : ∀ m ∈ range (n + 1), ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) =
+    sin ((m + 1 / 2) * x) / sin (x / 2) := by grind
   rw [sum_congr rfl this, ← sum_div]; norm_cast; push_cast
   rw [← mul_div_mul_left _ _ hx, mul_sum]
   replace this : ∀ i ∈ range (n + 1), sin (x / 2) * sin ((i + 1 / 2) * x) = 1 / 2 * (cos (i * x) - cos (((i + 1) : ℕ) * x)) := by
@@ -173,14 +176,14 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
   have ne_top : volume (Set.Icc (-π) π) ≠ ⊤ := by simp
   have aux_sbst : Set.Ioo (-δ) δ ⊆ Set.Icc (-π) π := by
     simp only [Set.subset_def, Set.mem_Ioo, Set.mem_Icc, and_imp]
-    intros; exact ⟨by linarith, by linarith⟩
+    grind
   intro ε εpos; simp only [ge_iff_le, dist_zero_right]
   set S := setOf fun x => δ ≤ |x| ∧ |x| ≤ π with hS; clear_value S
   have S_eq : S = Set.Icc (-π) π \ Set.Ioo (-δ) δ := by
     simp only [hS, Set.ext_iff, Set.mem_setOf_eq, Set.mem_diff, Set.mem_Icc, Set.mem_Ioo, not_and, not_lt]
     intro x; rw [and_comm, abs_le, le_abs]
     simp only [and_congr_right_iff, and_imp]
-    intros; rw [le_neg, Classical.or_iff_not_imp_right, not_le]
+    grind
   have S_vol : volume S ≠ ⊤ := by
     rw [S_eq, measure_diff]; any_goals simp
     · exact aux_sbst
@@ -197,9 +200,10 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
       positivity
   use ⌊2 * π / (ε * sin (δ / 2) ^ 2)⌋₊ + 1; intro n nge
   have : Set.EqOn (fejerKernel n) (fun x => 1 / (n + 1) * sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2) S := by
-    intro x hx; simp [hS] at hx; rw [fejerKernel_eq_real]
+    intro x hx; simp only [hS, Set.mem_setOf_eq] at hx
+    rw [fejerKernel_eq_real]
     · intro h; rw [aux_sin] at h
-      simp [h] at hx; linarith only [hx.left, δpos]
+      rw [h, abs_zero] at hx; linarith only [hx.left, δpos]
       · rw [Set.mem_Icc, ← abs_le]; exact hx.right
   rw [setIntegral_congr_fun _ this]; simp_rw [← mul_div]
   rw [integral_const_mul]; norm_cast
@@ -215,7 +219,7 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
         intro x hx; simp only [hS, Set.mem_setOf_eq] at hx
         rw [abs_div, abs_pow]; gcongr
         · rw [sq_pos_iff]; intro h; rw [aux_sin] at h
-          simp [h] at δpos
+          simp only [h, gt_iff_lt, lt_self_iff_false] at δpos
           · rw [Set.mem_Icc]; constructor
             · apply le_of_lt; rw [gt_iff_lt] at δpos
               apply lt_trans _ δpos; simp only [Left.neg_neg_iff]
@@ -251,16 +255,8 @@ lemma fejerKernel_mass : ∀ δ > 0, δ < π → Tendsto (fun n => ∫ x in (set
             all_goals positivity
       · apply ContinuousOn.integrableOn_compact
         · rw [hS]; replace this : setOf fun x => δ ≤ |x| ∧ |x| ≤ π = Set.Icc (-π) (-δ) ∪ Set.Icc δ π := by
-            simp [Set.ext_iff]; intro x; rw [le_abs, abs_le]
-            constructor
-            · rintro ⟨h, ⟨⟩⟩; rcases h with h|h
-              · right; constructor; all_goals assumption
-              left; exact ⟨by linarith, by linarith⟩
-            intro h; rcases h with ⟨_,_⟩|⟨_,_⟩
-            · constructor; right; linarith
-              exact ⟨by assumption, by linarith⟩
-            constructor; left; assumption
-            exact ⟨by linarith, by assumption⟩
+            simp only [Set.ext_iff, Set.mem_setOf_eq, Set.mem_union, Set.mem_Icc]
+            intro x; rw [le_abs, abs_le]; grind
           rw [this]; apply IsCompact.union
           all_goals exact isCompact_Icc
         apply ContinuousOn.abs; apply ContinuousOn.div
@@ -311,7 +307,9 @@ lemma aux_integrable [Fact (0 < 2 * π)] : ∀ n, Integrable (fejerKernel n ∘ 
     ext s hs; rw [(MeasurableEmbedding.subtype_coe measurableSet_Ioc).map_apply]
     rw [(AddCircle.measurableEquivIoc (2 * π) (-π)).map_apply, Measure.restrict_apply]
     rw [← (AddCircle.measurePreserving_mk (2 * π) (-π)).measure_preimage, Measure.restrict_apply]
-    congr 1; simp [Set.ext_iff, AddCircle.measurableEquivIoc, AddCircle.equivIoc]
+    congr 1; simp only [AddCircle.measurableEquivIoc, AddCircle.equivIoc, MeasurableEquiv.coe_mk,
+      Set.ext_iff, Set.mem_inter_iff, Set.mem_preimage, QuotientAddGroup.equivIocMod_coe,
+      Set.mem_Ioc, le_neg_add_iff_add_le, and_congr_left_iff, and_imp]
     intro x _ _; rw [(toIocMod_eq_self _).mpr]
     · rw [Set.mem_Ioc]; constructor
       assumption; linarith
@@ -377,12 +375,13 @@ lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → �
       rw [show ε = ε / 3 + ε / 3 + ε / 3 by ring]; gcongr
       · rw [← Integrable.toL1_sub]
         have : ((fun x => f (x - y)) - ⇑g ∘ fun x => x - y) = fun x => (f - g) (x - y) := by
-          ext; simp only [Pi.sub_apply, Function.comp_apply]
+          ext; simp
         simp only [this]; rw [norm_translation]
         · rw [Integrable.toL1_sub]; exact hg; exact hf
           apply Continuous.integrable_of_hasCompactSupport
           exact ContinuousMap.continuous g
           apply HasCompactSupport.of_compactSpace
+        · fun_prop
       · rw [← Integrable.toL1_sub, L1.norm_of_fun_eq_integral_norm]
         simp only [Pi.sub_apply, Function.comp_apply]
         have : ε / 3 = ∫ (a : AddCircle (2 * π)), ε / (6 * π) ∂volume := by
@@ -438,11 +437,8 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
       all_goals exact isCompact_Icc
     ext x; simp only [hS, Set.mem_setOf, Set.mem_union, Set.mem_Icc, le_abs, abs_le]
     constructor
-    · rintro ⟨h, ⟨⟩⟩; rcases h with h|h
-      · right; constructor
-        all_goals assumption
-      left; constructor; assumption; linarith
-    intro h; rcases h with ⟨_,h⟩|⟨h,_⟩
+    · grind
+    rintro (⟨_,h⟩|⟨h,_⟩)
     · constructor; right; linarith
       constructor; assumption
       apply le_trans h; apply le_of_lt
@@ -658,7 +654,7 @@ theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ h
                 · simp only [one_div, ne_eq, inv_eq_zero]
                   norm_cast
                 revert this; contrapose!
-                rw [aux_sin]; exact fun a => a
+                rw [aux_sin]; simp
                 · rw [Set.mem_Icc, ← abs_le]; apply le_of_lt
                   apply lt_trans hx1; apply lt_of_le_of_lt (min_le_right _ _)
                   linarith only [pi_pos]
