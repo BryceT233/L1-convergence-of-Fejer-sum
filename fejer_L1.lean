@@ -34,15 +34,14 @@ lemma aux_ofReal : Complex.ofReal = Complex.ofRealCLM := by
     ext; simp only [Complex.ofRealCLM_apply]
 
 -- Prove that $fejerKernel n$ is smooth for all $n$
-lemma contDiff_fejerKernel : ∀ n, ContDiff ℝ ⊤ (fejerKernel n) := by
-  intro n; unfold fejerKernel; rw [aux_ofReal]; fun_prop
+lemma contDiff_fejerKernel (n : ℕ) : ContDiff ℝ ⊤ (fejerKernel n) := by
+  unfold fejerKernel; rw [aux_ofReal]; fun_prop
 
 -- Prove a real closed formula of $fejerKernel n$ for $sin (x / 2) ≠ 0$ by induction
-lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 / (n + 1) * sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2 := by
-  intro n x hx; unfold fejerKernel
-  rw [← mul_div]; congr 1
-  have : ∀ m : ℕ, ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) = sin ((m + 1 / 2) * x) / sin (x / 2) := by
-    intro m; induction m with
+lemma fejerKernel_eq_real (n : ℕ) (x : ℝ) (hx : sin (x / 2) ≠ 0) : fejerKernel n x = 1 / (n + 1) * sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2 := by
+  unfold fejerKernel; rw [← mul_div]; congr 1
+  have (m : ℕ) : ∑ k ∈ Icc (-m : ℤ) m, Complex.exp (Complex.I * k * x) = sin ((m + 1 / 2) * x) / sin (x / 2) := by
+    induction m with
     | zero =>
       simp only [CharP.cast_eq_zero, neg_zero, Icc_self, sum_singleton, Int.cast_zero, mul_zero,
         zero_mul, Complex.exp_zero, one_div, zero_add]
@@ -79,8 +78,8 @@ lemma fejerKernel_eq_real : ∀ n x, sin (x / 2) ≠ 0 → fejerKernel n x = 1 /
   rw [show (n+1)*x = 2*((n+1)/2*x) by ring, ← sin_sq_eq_half_sub, ← pow_two]
 
 -- Compute the integral of $fejerKernel$ in $[-π, π]$
-lemma integral_fejerKernel : ∀ n, ∫ x in (-π)..π, fejerKernel n x = 2 * π := by
-  intro n; unfold fejerKernel
+lemma integral_fejerKernel (n : ℕ) : ∫ x in (-π)..π, fejerKernel n x = 2 * π := by
+  unfold fejerKernel
   rw [intervalIntegral.integral_const_mul, intervalIntegral.integral_finset_sum]
   have : ∀ x ∈ range (n + 1), ∫ (x_1 : ℝ) in -π..π, ∑ k ∈ Icc (-x : ℤ) x, Complex.exp (Complex.I * k * x_1) = 2 * π := by
     intro x hx; rw [mem_range] at hx
@@ -95,8 +94,8 @@ lemma integral_fejerKernel : ∀ n, ∫ x in (-π)..π, fejerKernel n x = 2 * π
       simp only [Complex.ofReal_mul, Complex.ofReal_intCast, Complex.exp_mul_I, Complex.ofReal_cos,
         Complex.ofReal_sin, add_right_inj]
       ring
-    rw [intervalIntegral.integral_congr this, intervalIntegral.integral_add]
-    rw [intervalIntegral.integral_const_mul, intervalIntegral.integral_ofReal, intervalIntegral.integral_ofReal]
+    rw [intervalIntegral.integral_congr this, intervalIntegral.integral_add,
+      intervalIntegral.integral_const_mul, intervalIntegral.integral_ofReal, intervalIntegral.integral_ofReal]
     simp only [Complex.ext_iff, Complex.add_re, Complex.ofReal_re, Complex.mul_re, Complex.I_re,
       zero_mul, Complex.I_im, Complex.ofReal_im, mul_zero, sub_self, add_zero, Complex.zero_re,
       Complex.add_im, Complex.mul_im, one_mul, zero_add, Complex.zero_im]
@@ -128,8 +127,7 @@ lemma aux_sin : ∀ x ∈ Set.Icc (-π) π, sin (x / 2) = 0 ↔ x = 0 := by
   intro; use 0; symm; simpa
 
 -- Prove that the integral of the norm of $fejerKernel$ in $[-π, π]$ is $2 * π$
-lemma integral_norm_fejerKernel : ∀ n, ∫ x in (-π)..π, ‖fejerKernel n x‖ = 2 * π := by
-  intro n; calc
+lemma integral_norm_fejerKernel (n : ℕ) : ∫ x in (-π)..π, ‖fejerKernel n x‖ = 2 * π := by calc
   _ = ∫ x in (-π)..π, 1 / (n + 1) * sin ((n + 1) / 2 * x) ^ 2 / sin (x / 2) ^ 2 := by
     apply intervalIntegral.integral_congr_ae
     rw [ae_iff, show (0:ENNReal) = volume {(0:ℝ)} by simp]; congr 1
@@ -296,11 +294,11 @@ noncomputable def cmul_bl : ℂ →L[ℝ] ℂ →L[ℝ] ℂ := {
       _ < _ := by linarith only [εpos]
 }
 
-lemma aux_cmul : ∀ x y, cmul_bl x y = x * y := by simp [cmul_bl]
+lemma aux_cmul (x y : ℂ) : cmul_bl x y = x * y := by simp [cmul_bl]
 
 -- Prove two auxillary integrablility results
-lemma aux_integrable [Fact (0 < 2 * π)] : ∀ n, Integrable (fejerKernel n ∘ Subtype.val ∘ ⇑(AddCircle.measurableEquivIoc (2 * π) (-π))) volume := by
-  intro n; rw [← Function.comp_assoc, ← (AddCircle.measurableEquivIoc (2 * π) (-π)).measurableEmbedding.integrable_map_iff]
+lemma aux_integrable [Fact (0 < 2 * π)] (n : ℕ) : Integrable (fejerKernel n ∘ Subtype.val ∘ ⇑(AddCircle.measurableEquivIoc (2 * π) (-π))) volume := by
+  rw [← Function.comp_assoc, ← (AddCircle.measurableEquivIoc (2 * π) (-π)).measurableEmbedding.integrable_map_iff]
   rw [← (MeasurableEmbedding.subtype_coe measurableSet_Ioc).integrable_map_iff]
   have : Measure.map Subtype.val (Measure.map (⇑(AddCircle.measurableEquivIoc (2 * π) (-π))) volume) =
   volume.restrict (Set.Ioc (-π) (-π + 2 * π)) := by
@@ -321,16 +319,17 @@ lemma aux_integrable [Fact (0 < 2 * π)] : ∀ n, Integrable (fejerKernel n ∘ 
   rw [this, ← IntegrableOn]; apply Continuous.integrableOn_Ioc
   exact (contDiff_fejerKernel n).continuous
 
-lemma aux_convolution_integrable [Fact (0 < 2 * π)] : ∀ n, ∀ f : AddCircle (2 * π) → ℂ, Integrable f volume →
-    Integrable (convolution ((fejerKernel n) ∘ (Subtype.val) ∘ (AddCircle.measurableEquivIoc (2 * π) (-π))) f cmul_bl volume) volume := by
-  intro n f hf; apply Integrable.integrable_convolution
+lemma aux_convolution_integrable [Fact (0 < 2 * π)] (n : ℕ) (f : AddCircle (2 * π) → ℂ)
+    (hf : Integrable f volume) : Integrable (convolution ((fejerKernel n) ∘ (Subtype.val) ∘
+    (AddCircle.measurableEquivIoc (2 * π) (-π))) f cmul_bl volume) volume := by
+  apply Integrable.integrable_convolution
   · exact aux_integrable n
   exact hf
 
 -- Prove two properties of the translation operators on 𝓛¹(AddCircle (2 * π) → ℂ), the first one is the fact that the translation operator preserves 𝓛¹-norm
-lemma norm_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume, ∀ y,
-    ‖(hf.comp_sub_right y).toL1‖ = ‖hf.toL1‖ := by
-  intro f hf y; simp only [L1.norm_of_fun_eq_integral_norm]
+lemma norm_translation [Fact (0 < 2 * π)] (f : AddCircle (2 * π) → ℂ) (hf : Integrable f volume)
+    (y : AddCircle (2 * π)) : ‖(hf.comp_sub_right y).toL1‖ = ‖hf.toL1‖ := by
+  simp only [L1.norm_of_fun_eq_integral_norm]
   have aux_eq : Measure.map (fun a => a - y) volume = volume := by
     ext s hs; rw [Measure.map_apply]
     · simp only [sub_eq_add_neg, measure_preimage_add_right]
@@ -344,9 +343,9 @@ lemma norm_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ,
   rw [← integral_map aux_mea aux_smea, aux_eq]
 
 -- Prove that when $y$ goes to zero, the translated functions $f(x-y)$ tends to $f(x)$ under 𝓛¹-norm
-lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume,
+lemma tendsto_translation [Fact (0 < 2 * π)] (f : AddCircle (2 * π) → ℂ) (hf : Integrable f volume) :
     Tendsto (fun y => (hf.comp_sub_right y).toL1) (nhds 0) (nhds hf.toL1) := by
-  intro f hf; rw [Metric.tendsto_nhds_nhds]
+  rw [Metric.tendsto_nhds_nhds]
   intro ε εpos; simp only [dist_eq_norm, sub_zero]
   have : Fact ((1 : ENNReal) ≤ 1) := ⟨by rfl⟩
   have := ContinuousMap.toLp_denseRange ℂ (volume : Measure (AddCircle (2 * π))) ℂ (show 1 ≠ ⊤ by simp)
@@ -406,9 +405,9 @@ lemma tendsto_translation [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → �
       · rwa [norm_sub_rev]
 
 -- The main theorem of 𝓛¹-convergence of Fejer sum for Lebesgue integrable functions
-theorem Fejer_L1 [Fact (0 < 2 * π)] : ∀ f : AddCircle (2 * π) → ℂ, ∀ hf : Integrable f volume,
+theorem Fejer_L1 [Fact (0 < 2 * π)] (f : AddCircle (2 * π) → ℂ) (hf : Integrable f volume) :
     Tendsto (fun n => (aux_convolution_integrable n f hf).toL1) atTop (nhds ((2 * π) • hf.toL1)) := by
-  intro f hf; rw [Metric.tendsto_atTop]
+  rw [Metric.tendsto_atTop]
   intro ε εpos; simp only [dist_eq_norm, ← Integrable.toL1_smul, ← Integrable.toL1_sub]
   simp only [L1.norm_of_fun_eq_integral_norm, Pi.sub_apply, convolution_def, aux_cmul]
   have := tendsto_translation f hf
